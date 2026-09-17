@@ -43,7 +43,9 @@ ESP32 GPIO 是 3.3V 电平，**不要直接接 5V**。改变接线前先拔 USB�
 | --- | --- |
 | 构建系统 | PlatformIO Core 6.2.0（VSCode 的 PlatformIO IDE 扩展 3.3.4） |
 | 平台 | `espressif32` 7.1.3 |
-| 框架 | `framework-arduinoespressif32` 4.20017.260907（即 arduino-esp32 3.x） |
+| 框架 | `framework-arduinoespressif32` 4.20017.260907 |
+| 内含 Arduino Core | **ESP32 Arduino Core 2.0.17**（`ESP_ARDUINO_VERSION_MAJOR/MINOR/PATCH = 2/0/17`），基于 ESP-IDF 4.4.7 |
+| 编译器 | `xtensa-esp32-elf-gcc` 8.4.0（工具链版本由框架决定） |
 | 串口 | CP2102 → `COM3`，波特率 115200 |
 
 `platformio.ini` 里只设了三件事：平台版本、开发板、框架，外加串口监视器波特率。
