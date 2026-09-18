@@ -3,6 +3,9 @@
 .pioenvs
 .piolibdeps
 
+# `pio run -t compiledb` 在项目根生成，含全部编译命令行（本机约 1.2 MB）
+compile_commands.json
+
 # --- VSCode / C/C++ IntelliSense ---
 # c_cpp_properties.json 与 launch.json 由 PlatformIO 自动生成，且内含本机绝对路径
 .vscode/.browse.c_cpp.db*
