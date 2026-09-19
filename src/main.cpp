@@ -7,11 +7,14 @@ constexpr int TFT_CS = 5;
 constexpr int TFT_DC = 17;
 constexpr int TFT_RST = 16;
 constexpr int BUTTON_PIN = 32;
+constexpr int JOYSTICK_Y_PIN = 33;
 constexpr bool TEST_MODE = true;
 constexpr uint32_t FOCUS_MS = TEST_MODE ? 10000UL : 25UL * 60UL * 1000UL;
 constexpr uint32_t SHORT_BREAK_MS = TEST_MODE ? 5000UL : 5UL * 60UL * 1000UL;
 constexpr uint32_t LONG_BREAK_MS = TEST_MODE ? 8000UL : 15UL * 60UL * 1000UL;
 constexpr uint32_t DEBOUNCE_MS = 30;
+constexpr int JOYSTICK_DOWN_THRESHOLD = 3500;
+constexpr int JOYSTICK_RELEASE_THRESHOLD = 2800;
 
 Adafruit_ST7789 tft(TFT_CS, TFT_DC, TFT_RST);
 
@@ -41,6 +44,7 @@ TimerState displayedState = TimerState::Ready;
 bool stateHasBeenDrawn = false;
 Phase displayedPhase = Phase::Focus;
 uint32_t displayedCompletedFocus = UINT32_MAX;
+bool joystickDownLatched = false;
 
 bool buttonPressed(uint32_t now) {
   const bool reading = digitalRead(BUTTON_PIN);
@@ -53,6 +57,21 @@ bool buttonPressed(uint32_t now) {
   if (buttonRaw != buttonStable && now - buttonChangedAt >= DEBOUNCE_MS) {
     buttonStable = buttonRaw;
     return buttonStable == LOW;
+  }
+
+  return false;
+}
+
+bool joystickDownPressed() {
+  const int yValue = analogRead(JOYSTICK_Y_PIN);
+
+  if (!joystickDownLatched && yValue >= JOYSTICK_DOWN_THRESHOLD) {
+    joystickDownLatched = true;
+    return true;
+  }
+
+  if (joystickDownLatched && yValue <= JOYSTICK_RELEASE_THRESHOLD) {
+    joystickDownLatched = false;
   }
 
   return false;
@@ -194,6 +213,14 @@ void goToNextPhase() {
   displayedSeconds = UINT32_MAX;
 }
 
+void resetCurrentPhase() {
+  remainingMs = phaseDuration();
+  state = TimerState::Ready;
+  displayedSeconds = UINT32_MAX;
+  Serial.println("RESET");
+  updateDisplay();
+}
+
 void handleButtonPress() {
   switch (state) {
     case TimerState::Ready:
@@ -215,6 +242,8 @@ void handleButtonPress() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(JOYSTICK_Y_PIN, INPUT);
+  analogReadResolution(12);
 
   SPI.begin(18, -1, 23, TFT_CS);
   tft.init(240, 240);
@@ -246,6 +275,10 @@ void loop() {
 
   if (buttonPressed(now)) {
     handleButtonPress();
+  }
+
+  if (joystickDownPressed()) {
+    resetCurrentPhase();
   }
 
   updateDisplay();

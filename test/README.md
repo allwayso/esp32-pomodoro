@@ -28,3 +28,13 @@ The display shows `RELEASED` on blue and `PRESSED` on green.
 pio run -e esp32dev
 pio run -e esp32dev -t upload
 ```
+
+## Joystick Y axis
+
+```powershell
+pio run -e joystick_axis_test
+pio run -e joystick_axis_test -t upload
+pio device monitor --baud 115200
+```
+
+Record the values while the joystick is centered, pushed up, and pushed down.
