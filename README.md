@@ -1,93 +1,101 @@
 # ESP32 桌面番茄钟
 
-用经典 ESP32 从零做一个**脱离电脑也能独立运行**的桌面番茄钟。面包板原型，全程免焊接。
+基于 ESP32-WROOM-32、1.54 英寸 ST7789 TFT 和摇杆模块制作的桌面番茄钟。程序烧录后可使用普通 USB 电源脱离电脑运行。
 
-面向有编程基础、刚开始接触硬件的学习者。完整方案见 [`docs/ESP32番茄钟制作指南.md`](docs/ESP32番茄钟制作指南.md)。
+## 当前功能
 
-## 功能
+- 专注 25 分钟、短休息 5 分钟，每完成 4 次专注后进入 15 分钟长休息
+- 按下摇杆：开始、暂停、继续；阶段完成后进入下一阶段
+- 向下推动摇杆：重置当前阶段并回到 `READY`
+- TFT 显示当前阶段、剩余时间、运行状态和已完成专注次数
+- 局部刷新屏幕，避免倒计时过程中整屏闪烁
 
-- 默认专注 25 分钟，短休息 5 分钟，完成 4 次专注后长休息 15 分钟
-- A 键：开始 / 暂停 / 继续；B 键：重置当前阶段
-- 时间到：屏幕显示 `DONE`，LED 闪烁；按 A 确认后进入下一阶段
-- 屏幕显示阶段、剩余时间、运行状态、已完成专注次数
+当前版本不发声、不联网，也不保存断电前进度。重新上电会从第一次专注开始。
 
-第一版不发声、不联网、不保存断电前进度。
+## 硬件与接线
 
-## 分阶段进度
-
-| 阶段 | 内容 | 状态 |
+| 模块引脚 | ESP32 开发板丝印 | GPIO / 电源 |
 | --- | --- | --- |
-| 1 | 裸板串口自检（不接任何器件） | ✅ 已完成 |
-| 2 | 只接 OLED，扫描 I²C 地址 | ⬜ 待做 |
-| 3 | 只接按钮 + LED，独立测试 | ⬜ 待做 |
-| 4 | 接全套，烧录完整程序（`TEST_MODE = true`） | ⬜ 待做 |
-| 5 | 关闭 `TEST_MODE`，脱机运行并与手机对表 | ⬜ 待做 |
+| TFT GND | `GND` | GND |
+| TFT VCC | `3V3` | 3.3V |
+| TFT SCL | `D18` | GPIO18，SPI SCK |
+| TFT SDA | `D23` | GPIO23，SPI MOSI |
+| TFT RST | `RX2` | GPIO16 |
+| TFT DC | `TX2` | GPIO17 |
+| TFT CS | `D5` | GPIO5 |
+| TFT BL | `3V3` | 3.3V，与 TFT VCC 共用电源轨 |
+| 摇杆 GND | `GND` | GND |
+| 摇杆 `5V` | `3V3` | 使用 3.3V 供电，不接 5V |
+| 摇杆 SW | `D32` | GPIO32 |
+| 摇杆 VRy | `D33` | GPIO33，模拟输入 |
 
-分阶段是为了**每次只引入一个变量**：链接不通、屏幕不亮、按钮失灵、逻辑跑飞，各自有明确的验证手段。
+摇杆 `VRx` 暂未使用。ESP32 GPIO 不耐受 5V；接线或改线前先拔掉 USB。
 
-## 硬件清单
+## 操作方式
 
-| 器材 | 规格 | 连接 |
+| 当前状态 | 操作 | 结果 |
 | --- | --- | --- |
-| ESP32 开发板 | 经典 ESP32-WROOM-32 DevKit（板载 CP2102） | USB 供电 + 烧录 |
-| OLED | 0.96" 128×64 SSD1306，I²C 四针 | GND / 3V3 / SDA→GPIO21 / SCL→GPIO22 |
-| 轻触按钮 ×2 | 6×6mm 四脚直插，常开 | A: GPIO18↔GND　B: GPIO19↔GND（内部上拉） |
-| LED ×1 | 3mm/5mm 红色直插 | GPIO23 → 1kΩ → LED 正极，负极→GND |
-| 面包板 ×2 + 杜邦线 | | |
-
-ESP32 GPIO 是 3.3V 电平，**不要直接接 5V**。改变接线前先拔 USB。
-
-## 开发环境
-
-| 项 | 版本 / 值 |
-| --- | --- |
-| 构建系统 | PlatformIO Core 6.2.0（VSCode 的 PlatformIO IDE 扩展 3.3.4） |
-| 平台 | `espressif32` 7.1.3 |
-| 框架 | `framework-arduinoespressif32` 4.20017.260907 |
-| 内含 Arduino Core | **ESP32 Arduino Core 2.0.17**（`ESP_ARDUINO_VERSION_MAJOR/MINOR/PATCH = 2/0/17`），基于 ESP-IDF 4.4.7 |
-| 编译器 | `xtensa-esp32-elf-gcc` 8.4.0（工具链版本由框架决定） |
-| 串口 | CP2102 → `COM3`，波特率 115200 |
-
-`platformio.ini` 里只设了三件事：平台版本、开发板、框架，外加串口监视器波特率。
-
-> **为什么不用 Arduino IDE**：PlatformIO 用 `lib_deps` 声明依赖，换电脑时 `pio run` 一条命令即可重建环境；Arduino IDE 的库装在全局目录里，不可复现。
+| `READY` | 按下摇杆 | 开始倒计时 |
+| `RUNNING` | 按下摇杆 | 暂停 |
+| `PAUSED` | 按下摇杆 | 继续 |
+| `DONE` | 按下摇杆 | 进入下一阶段的 `READY` 状态 |
+| 任意状态 | 向下推动摇杆 | 重置当前阶段，不清除已完成次数 |
 
 ## 构建与烧录
 
-```bash
-pio run                 # 只编译
-pio run -t upload       # 编译并烧录
-pio device monitor      # 打开串口监视器（115200）
+项目使用 PlatformIO。若终端已配置 `pio`：
+
+```powershell
+pio run -e esp32dev
+pio run -e esp32dev -t upload
+pio device monitor --baud 115200
 ```
 
-烧录成功的两个关键标志：
+若 PowerShell 找不到 `pio`，使用完整路径：
 
-```
-Chip is ESP32-D0WD-V3 (revision v3.1)     ← 握手成功，芯片型号识别正确
-Hash of data verified.                    ← 写入内容校验通过
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -e esp32dev -t upload
 ```
 
-若卡在 `Connecting........_____`：**按住板上 `BOOT` 键 → 重新上传 → 看到 `Writing at ...` 后松开**。
+打开串口监视器时会占用 COM 端口，重新上传前先按 `Ctrl+C` 退出监视器。
+
+## 脱离电脑运行
+
+烧录完成后，程序保存在 ESP32 的 Flash 中。拔掉电脑 USB，再使用手机充电器或充电宝通过开发板 USB 接口供电，即可自动启动。
+
+断电时设备不能运行；再次供电后计时和完成次数会重置。不要将裸锂电池直接接到开发板，电池供电需要充电、保护和稳压电路。
+
+## 硬件测试程序
+
+硬件测试位于 `test/`，每项都有独立 PlatformIO 环境，不需要覆盖主程序：
+
+```powershell
+pio run -e tft_display_test -t upload
+pio run -e joystick_button_test -t upload
+pio run -e joystick_axis_test -t upload
+```
+
+详见 [`test/README.md`](test/README.md)。
 
 ## 目录结构
 
-```
+```text
 esp32-pomodoro/
-├── platformio.ini        构建配置（平台 / 开发板 / 框架 / 串口波特率）
-├── src/main.cpp          主程序，阶段 1 目前是串口自检
-├── include/              项目私有头文件（当前未使用）
-├── lib/                  项目私有库（当前未使用）
-├── test/                 单元测试（当前未使用）
-└── docs/                 方案文档与学习资料
+|-- platformio.ini
+|-- src/main.cpp
+|-- test/
+|   |-- tft_display/main.cpp
+|   |-- joystick_button/main.cpp
+|   `-- joystick_axis/main.cpp
+`-- docs/
 ```
 
-## 已知环境坑（备忘）
+`docs/ESP32番茄钟制作指南.md` 是项目早期针对 SSD1306 OLED、双按键和 LED 的设计记录，当前实物实现以本 README 和 `src/main.cpp` 为准。
 
-1. **PlatformIO 下载极慢**：PIO 用 Python `requests`，**不读 Windows 的系统代理（WinINET）**。必须在 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量里配置代理，否则 115 MB 的工具链要下 80 分钟。
-2. **`command 'platformio-ide.build' not found`**：多半是某个卡死的 `pio` 进程持有着包锁，导致扩展的 `activate()` 不返回、命令没注册。处理：完全退出 VSCode → 杀掉所有 `platformio` python 进程 → 删 `~/.platformio/.cache/downloads/*.lock`。
-3. **`无法打开源文件 "Arduino.h"`**：这是 C/C++ 扩展（IntelliSense）的误报，不是编译错误。先构建一次，PIO 会生成 `.vscode/c_cpp_properties.json`，波浪线自动消失。**不要手工改 `includePath`**。
-4. **Micro-USB 线必须能传数据**：板子红灯亮只代表 VBUS 通了，**不代表数据线通**。判断数据线是否可用，看系统能否报出 USB 设备的 `VID`/`PID`（USB 枚举必须走 D+/D-）。
+## 后续方向
 
-## 后续扩展方向
-
-可设置专注时长 → 用 NVS 保存设置 → 蜂鸣器提醒 → 外壳与固定 → Wi-Fi 对时与统计网页。
+- NVS 保存断电前状态或用户设置
+- 可调专注与休息时长
+- 蜂鸣器或振动提醒
+- 外壳与可靠固定
+- Wi-Fi 对时和统计页面
